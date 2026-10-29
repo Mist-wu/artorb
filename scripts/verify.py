@@ -37,8 +37,19 @@ for asset in (OUT / '_next').rglob('*'):
             assert word.lower() not in text, (asset.name, word)
         assert 'mirror' not in asset.name, asset.name
 
-for story in json.loads((ROOT / 'stories.json').read_text()):
-    assert story['label'] in (OUT / '_next/static/immutable/chunks/1gt2lkh_kph3q.js').read_text()
+app_refs = re.findall(r'<script src="([^"]*/artorb-[a-f0-9]+\.js)"', html)
+assert len(app_refs) == 1
+app = (OUT / app_refs[0].lstrip('/')).read_text()
+stories = [{k: v for k, v in story.items() if k != 'color'}
+           for story in json.loads((ROOT / 'stories.json').read_text())]
+assert 'let _=' + json.dumps(stories, ensure_ascii=False, separators=(',', ':')) + ';' in app
+assert '图片来自维基共享资源的开放图像库' not in app
+credits = (OUT / 'credits.html').read_text()
+assert '<a href="/">返回</a>' in credits
+assert '回到名画轨道' not in credits
+assert 'public domain' not in (html + app + credits).lower()
+assert '<p>' not in credits
+assert credits.count('<tr>') == len(arts)
 for js in (OUT / '_next').rglob('*.js'):
     subprocess.run(['node', '--check', str(js)], check=True, capture_output=True)
 

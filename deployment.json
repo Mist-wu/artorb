@@ -1,7 +1,7 @@
 {
   "project": "artorb",
   "productionUrl": "https://artorb.pages.dev",
-  "deploymentUrl": "https://baf22fcd.artorb.pages.dev",
+  "deploymentUrl": "https://e97308dc.artorb.pages.dev",
   "branch": "main",
   "deployedFiles": 133,
   "verification": {
@@ -10,6 +10,13 @@
     "creditsCanonicalUrl": "https://artorb.pages.dev/credits",
     "provenanceStringsRemoved": true,
     "webglCanvasMounted": true,
+    "screenshotCopyRemoved": true,
+    "creditsParagraphs": 0,
+    "creditsArtworkRows": 56,
+    "creditsReturnLabel": "返回",
+    "visiblePublicDomainLabels": 0,
+    "productionHtmlAndAppMatchLocal": true,
+    "browserConsoleErrors": 0,
     "loadedThumbnailImages": 56,
     "failedBrowserResources": 0,
     "thirdPartyInitialRequests": 0,
