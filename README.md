@@ -40,6 +40,7 @@ public/               部署到 Cloudflare Pages 的静态站
     thumbs/           420px 长边预览
   credits.html        图片来源（由 scripts/build.py 生成）
   artworks.json       图片的来源与许可清单（生成）
+  navigation.css/js   链接悬停与页间淡入淡出（支持减少动态效果）
   favicon.svg / robots.txt / sitemap.xml / _headers
 curation.json         名画标题、中文名、作者、年代的选择清单
 stories.json          8 段作品介绍
@@ -54,7 +55,7 @@ browser-verification.json  桌面 / 移动端交互测试结果
 wrangler.toml         Cloudflare Pages 配置
 ```
 
-`public/index.html` 与 `public/_next/` 是手写维护的应用资产；其余 `public/` 内容都由 `scripts/build.py` 从 `artworks.json` 重新生成。
+`public/index.html`、`public/_next/` 和 `public/navigation.*` 是维护的应用资产。`scripts/build.py` 生成图片来源页、缩略图及部署清单，不覆盖这些应用文件。
 
 `collect-art.py` / `museum-cache/` 是早期图库候选的查询记录；Art Institute 的图片端点对当前网络返回 403，最终没有使用其图像。
 
@@ -64,6 +65,7 @@ wrangler.toml         Cloudflare Pages 配置
 python3 scripts/collect-commons.py  # 有缓存时不重复下载
 python3 scripts/build.py
 python3 scripts/verify.py
+node --test scripts/navigation.test.cjs
 python3 -m http.server 8799 --directory public
 wrangler pages deploy public --project-name artorb --branch main
 ```

@@ -45,12 +45,15 @@ stories = [{k: v for k, v in story.items() if k != 'color'}
 assert 'let _=' + json.dumps(stories, ensure_ascii=False, separators=(',', ':')) + ';' in app
 assert '图片来自维基共享资源的开放图像库' not in app
 credits = (OUT / 'credits.html').read_text()
-assert '<a href="/">返回</a>' in credits
+assert '<a class="artorb-nav-link" href="/">返回</a>' in credits
 assert '回到名画轨道' not in credits
 assert 'public domain' not in (html + app + credits).lower()
 assert '<p>' not in credits
 assert credits.count('<tr>') == len(arts)
-for js in (OUT / '_next').rglob('*.js'):
+for page in (html, credits):
+    assert 'href="/navigation.css"' in page
+    assert 'src="/navigation.js"' in page
+for js in [*(OUT / '_next').rglob('*.js'), OUT / 'navigation.js']:
     subprocess.run(['node', '--check', str(js)], check=True, capture_output=True)
 
 print(json.dumps({'artworks': len(arts), 'images': len(arts) * 2, 'public_domain_verified': True,

@@ -1,0 +1,19 @@
+{
+  "localUrl": "http://127.0.0.1:8813/",
+  "productionUrl": "https://art.mistwu.com",
+  "unitTests": {"passed": 16, "failed": 0},
+  "browserChecks": {
+    "hoverTranslation": "0px -2px",
+    "hoverUnderlineOpacity": 0.55,
+    "sourcesSameTab": true,
+    "commonsNewTab": true,
+    "departureDurationMs": 180,
+    "departureOpacitySamples": [0, 0.0812868, 0.276078, 0.488158, 0.739327, 0.870885],
+    "returnNavigationPassed": true,
+    "historyBackClearsVeil": true,
+    "reducedMotionDisablesAnimation": true,
+    "mobileViewport": {"width": 390, "height": 844, "horizontalOverflow": false},
+    "productionCreditsSharedAssetsLoaded": true,
+    "productionCreditsVeilCleared": true
+  }
+}

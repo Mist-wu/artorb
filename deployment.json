@@ -1,13 +1,16 @@
 {
   "project": "artorb",
   "productionUrl": "https://artorb.pages.dev",
-  "deploymentUrl": "https://e97308dc.artorb.pages.dev",
+  "deploymentUrl": "https://e9063da7.artorb.pages.dev",
   "branch": "main",
-  "deployedFiles": 133,
+  "deployedFiles": 135,
   "verification": {
     "mainPageStatus": 200,
     "creditsPageStatus": 200,
     "creditsCanonicalUrl": "https://artorb.pages.dev/credits",
+    "customDomainUrl": "https://art.mistwu.com",
+    "navigationTestsPassed": 16,
+    "sharedNavigationAssetsLoaded": true,
     "provenanceStringsRemoved": true,
     "webglCanvasMounted": true,
     "screenshotCopyRemoved": true,

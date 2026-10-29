@@ -1,7 +1,7 @@
 """Regenerate the derived parts of the gallery: thumbnails, image credits, headers.
 
-`public/index.html` and `public/_next/` are the hand-maintained application
-assets; everything else under public/ is produced here from artworks.json.
+`public/index.html`, `public/_next/` and `public/navigation.*` are maintained
+application assets; image credits and deployment metadata are generated here.
 """
 from pathlib import Path
 import json, html, hashlib, subprocess
@@ -33,7 +33,7 @@ rows = ''.join(
     f'<br><small>{html.escape(a["artist"])} · {a["year"]}</small></td>'
     f'<td><a href="{html.escape(a["original"], quote=True)}">原图 ↗</a></td></tr>'
     for a in arts)
-(OUT / 'credits.html').write_text('''<!doctype html><html lang="zh-Hans"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>artorb · 图片来源</title><style>*{box-sizing:border-box}body{margin:0;background:#bfbfbf;color:#242427;font:16px/1.8 Arial,"PingFang SC",sans-serif}main{max-width:920px;margin:70px auto;padding:24px}h1{font-size:30px;font-weight:400}a{color:inherit;text-underline-offset:4px}p{max-width:720px}table{border-collapse:collapse;width:100%;margin:40px 0}td{padding:18px 12px;border-bottom:1px solid #a4a4a4}td img{width:84px;height:75px;object-fit:contain}small{color:#555}@media(max-width:600px){main{margin:25px auto;padding:20px}td{padding:14px 5px;font-size:13px}td img{width:54px}}</style><main><a href="/">← artorb</a><h1>名画属于所有观看的人。</h1><table>''' + rows + '''</table><a href="/">返回</a></main></html>''')
+(OUT / 'credits.html').write_text('''<!doctype html><html lang="zh-Hans"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>artorb · 图片来源</title><link rel="stylesheet" href="/navigation.css"><script src="/navigation.js" defer></script><style>*{box-sizing:border-box}body{margin:0;background:#bfbfbf;color:#242427;font:16px/1.8 Arial,"PingFang SC",sans-serif}main{max-width:920px;margin:70px auto;padding:24px}h1{font-size:30px;font-weight:400}a{color:inherit;text-underline-offset:4px}p{max-width:720px}table{border-collapse:collapse;width:100%;margin:40px 0}td{padding:18px 12px;border-bottom:1px solid #a4a4a4}td img{width:84px;height:75px;object-fit:contain}small{color:#555}@media(max-width:600px){main{margin:25px auto;padding:20px}td{padding:14px 5px;font-size:13px}td img{width:54px}}</style><main><a class="artorb-nav-link" href="/">← artorb</a><h1>名画属于所有观看的人。</h1><table>''' + rows + '''</table><a class="artorb-nav-link" href="/">返回</a></main></html>''')
 
 (OUT / 'artworks.json').write_text(json.dumps(arts, ensure_ascii=False, indent=2))
 (OUT / '_headers').write_text('''/*
