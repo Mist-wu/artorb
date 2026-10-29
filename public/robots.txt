@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://artorb.pages.dev/sitemap.xml

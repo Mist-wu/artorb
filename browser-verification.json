@@ -1,0 +1,12 @@
+{
+  "localUrl": "http://127.0.0.1:8799/",
+  "desktopViewport": {"width": 1440, "height": 960},
+  "webglCanvasMounted": true,
+  "shapeTransitions": {"sphere": "pass", "heart": "pass", "smiley": "pass", "star": "pass", "grid": "pass"},
+  "filters": {"prints": 3, "paintings": 53, "all": 56},
+  "cardFocus": {"pass": true, "loadedHighResolutionImage": "/art/master-18.jpg", "caption": "《船上的午宴》 · 皮埃尔-奥古斯特·雷诺阿 · 1881", "sourceLink": "https://commons.wikimedia.org/wiki/File:Pierre-Auguste_Renoir_-_Luncheon_of_the_Boating_Party_-_Google_Art_Project.jpg"},
+  "mobileViewport": {"width": 390, "height": 844},
+  "mobileArticle": {"paragraphs": 8, "allChinese": true, "scrollable": true, "scrolled": true, "allParagraphsWithinViewport": true, "closed": true},
+  "initialThirdPartyRequests": 0,
+  "failedInitialResources": 0
+}
