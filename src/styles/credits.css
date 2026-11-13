@@ -1,0 +1,21 @@
+/* Image credits page (/credits). */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #bfbfbf;
+  color: #242427;
+  font: 16px/1.8 Arial, "PingFang SC", sans-serif;
+}
+main { max-width: 920px; margin: 70px auto; padding: 24px; }
+h1 { font-size: 30px; font-weight: 400; }
+a { color: inherit; text-underline-offset: 4px; }
+p { max-width: 720px; }
+table { border-collapse: collapse; width: 100%; margin: 40px 0; }
+td { padding: 18px 12px; border-bottom: 1px solid #a4a4a4; }
+td img { width: 84px; height: 75px; object-fit: contain; }
+small { color: #555; }
+@media (max-width: 600px) {
+  main { margin: 25px auto; padding: 20px; }
+  td { padding: 14px 5px; font-size: 13px; }
+  td img { width: 54px; }
+}

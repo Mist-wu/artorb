@@ -1,0 +1,28 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "artorb-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "8799",
+        "--strictPort"
+      ],
+      "port": 8799
+    },
+    {
+      "name": "artorb-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "8797",
+        "--strictPort"
+      ],
+      "port": 8797
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+/* Overlay that the render loop moves around the cloud / hovered / focused card. */
+.cloud-value-chip {
+  background: var(--cvframe);
+  transition: opacity .18s, background .3s;
+}
+.cloud-overlay { transition: opacity .3s; }
+.cloud-bbox {
+  border: 1px solid var(--cvframe);
+  transition: border-color .3s;
+}
+.cloud-overlay[data-mode=card] .cloud-value-chip,
+.cloud-overlay[data-mode=focus] .cloud-value-chip { opacity: 0; }

@@ -1,0 +1,43 @@
+{
+  "name": "artorb",
+  "private": true,
+  "type": "module",
+  "description": "世界名画的立体漫游：56 幅公版名画浮在三维空间里",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/build.ts",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run test && npm run build",
+    "collect": "node scripts/collect-commons.ts",
+    "thumbs": "node scripts/thumbs.ts",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name artorb --branch main"
+  },
+  "dependencies": {
+    "motion": "12.35.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "~0.185.4",
+    "@vitejs/plugin-react": "^6.3.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "framer-motion": "12.35.1",
+    "motion-dom": "12.35.1",
+    "motion-utils": "12.29.2"
+  }
+}

@@ -1,0 +1,48 @@
+/* Tailwind scans src/ and the HTML entry for class names. */
+@import "tailwindcss" source("..");
+@source "../../index.html";
+
+@theme {
+  --default-font-family: Arial, "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+  }
+  body {
+    color: #fff;
+    -webkit-text-stroke: 0.25px currentColor;
+    background: #b0b0b0;
+    min-height: 100vh;
+    font-family: Neue Haas Display, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.125rem;
+    font-weight: 400;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+}
+
+/* rem-based spacing shrinks on small screens. */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+  body {
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+}
+@media (max-width: 480px) {
+  html {
+    font-size: 12px;
+  }
+  body {
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+}

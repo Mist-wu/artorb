@@ -1,0 +1,74 @@
+/* Quiet, shared link and page transitions for the gallery. */
+:root {
+  --artorb-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+.artorb-nav-link {
+  position: relative;
+  display: inline-block;
+  padding-block: 8px;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 180ms ease, translate 220ms var(--artorb-ease);
+}
+
+.artorb-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(.65);
+  transition: opacity 180ms ease, transform 220ms var(--artorb-ease);
+}
+
+@media (hover: hover) {
+  .artorb-nav-link:hover { translate: 0 -2px; }
+  .artorb-nav-link:hover::after { opacity: .55; transform: scaleX(1); }
+}
+
+@media (pointer: coarse) {
+  .artorb-nav-link { padding-block: 14px; }
+  .artorb-nav-link::after { bottom: 8px; }
+}
+
+.artorb-nav-link:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 5px;
+  border-radius: 2px;
+}
+.artorb-nav-link:active { translate: 0 1px; }
+
+/* A grey veil leaves the WebGL canvas and fixed-position layout untouched. */
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: #bfbfbf;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  animation: artorb-arrive 320ms ease-out both;
+}
+html.artorb-leaving::after {
+  animation: artorb-depart 180ms ease-in both;
+  opacity: 1;
+  pointer-events: auto;
+}
+@keyframes artorb-depart {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes artorb-arrive {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artorb-nav-link, .artorb-nav-link::after { transition: none; }
+  .artorb-nav-link:hover, .artorb-nav-link:active { translate: none; }
+  html::after, html.artorb-leaving::after { animation: none; transition: none; }
+}
