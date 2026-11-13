@@ -7,6 +7,7 @@ import {
   MeshBasicMaterial,
   PerspectiveCamera,
   PlaneGeometry,
+  Quaternion,
   Raycaster,
   SRGBColorSpace,
   Scene,
@@ -277,8 +278,16 @@ export function createGalleryScene({
   let gridHeight = 10;
   let gridScroll = 0;
   let gridVelocity = 0;
-  let rotation = 0.6;
+  // Trackball orientation: horizontal drags spin about the screen's Y axis,
+  // vertical drags about its X axis, so the orb turns freely through 360°.
+  const AXIS_X = new Vector3(1, 0, 0);
+  const AXIS_Y = new Vector3(0, 1, 0);
+  const IDENTITY = new Quaternion();
+  const orientation = new Quaternion().setFromAxisAngle(AXIS_Y, 0.6);
+  const viewQuat = new Quaternion();
+  const stepQuat = new Quaternion();
   let spinVelocity = 0;
+  let tiltVelocity = 0;
   /** Last real shape; kept while the story overlay is open. */
   let layoutShape: Shape = 'sphere';
   let startedAt = 0;
@@ -431,6 +440,7 @@ export function createGalleryScene({
       gridVelocity = step;
     } else {
       spinVelocity = 0.004 * dx;
+      tiltVelocity = 0.004 * dy;
     }
   }
 
@@ -550,19 +560,19 @@ export function createGalleryScene({
       layoutShape === 'heart' || layoutShape === 'smiley' || layoutShape === 'star' || layoutShape === 'grid',
     );
     shapeBlend += (flatShape - shapeBlend) * 0.06;
-    rotation += 0.07 * dt * (1 - shapeBlend);
-    if (shapeBlend > 0.01) {
-      // Flat shapes ease back to face the camera.
-      const facing = Math.round(rotation / (2 * Math.PI)) * Math.PI * 2;
-      rotation += (facing - rotation) * 0.09 * shapeBlend;
-    }
-    rotation += spinVelocity;
+    const spin = 0.07 * dt * (1 - shapeBlend) + spinVelocity;
+    orientation.premultiply(stepQuat.setFromAxisAngle(AXIS_Y, spin));
+    orientation.premultiply(stepQuat.setFromAxisAngle(AXIS_X, tiltVelocity));
+    // Flat shapes ease back to face the camera.
+    if (shapeBlend > 0.01) orientation.slerp(IDENTITY, 0.09 * shapeBlend);
+    orientation.normalize();
     spinVelocity *= 0.94;
+    tiltVelocity *= 0.94;
     const sway =
       layoutShape === 'heart' || layoutShape === 'smiley' || layoutShape === 'star'
         ? 0.15 * Math.sin(0.35 * elapsed) * shapeBlend
         : 0;
-    const angle = rotation + sway;
+    viewQuat.setFromAxisAngle(AXIS_Y, sway).multiply(orientation);
 
     if (!Number.isFinite(camera.position.z)) camera.position.z = fitDistance();
     camera.position.z += (targetZ - camera.position.z) * 0.08;
@@ -591,15 +601,13 @@ export function createGalleryScene({
         heroUntil = now + 1600;
         heroCard.introDelay = 0;
         if (heroCard.on) {
-          const cos = Math.cos(rotation);
-          const sin = Math.sin(rotation);
           let front: Card | null = null;
           let best = -Infinity;
           for (const card of cards) {
             if (!card.on) continue;
             spherePoint(card.ordinal, activeCount, desired);
-            const x = desired.x * cos + desired.z * sin;
-            const score = -desired.x * sin + desired.z * cos - (Math.abs(x) + Math.abs(desired.y)) * 1.5;
+            desired.applyQuaternion(orientation);
+            const score = desired.z - (Math.abs(desired.x) + Math.abs(desired.y)) * 1.5;
             if (score > best) {
               best = score;
               front = card;
@@ -622,8 +630,6 @@ export function createGalleryScene({
     }
 
     const aboutLift = aboutBlend * (layoutShape === 'grid' ? gridHeight + 2.5 * halfH : 3.2 * halfH);
-    const cosA = Math.cos(angle);
-    const sinA = Math.sin(angle);
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -665,9 +671,8 @@ export function createGalleryScene({
         desired.copy(target);
         desired.x += hashNoise(3 * ordinal + 1) * noise * 6;
         desired.y += hashNoise(3 * ordinal + 2) * noise * 6;
-        const x = desired.x * cosA + desired.z * sinA;
-        const z = -desired.x * sinA + desired.z * cosA;
-        desired.set(x, desired.y + aboutLift + portraitLift, z);
+        desired.applyQuaternion(viewQuat);
+        desired.y += aboutLift + portraitLift;
         if (card === focused) {
           desired.set(0, 0.25, camera.position.z - FOCUS_DEPTH);
         } else if (card === hovered && !autoHover && layoutShape === 'grid') {
@@ -859,7 +864,10 @@ export function createGalleryScene({
       bboxEl.style.width = `${w}px`;
       bboxEl.style.height = `${h}px`;
       if (frameCount % 5 == 0) {
-        const degrees = (((rotation * MathUtils.RAD2DEG) % 360) + 360) % 360;
+        // Yaw of the orb's front axis, for the rotate chip.
+        const { x: qx, y: qy, z: qz, w: qw } = orientation;
+        const yaw = Math.atan2(2 * (qw * qy + qx * qz), 1 - 2 * (qx * qx + qy * qy));
+        const degrees = (((yaw * MathUtils.RAD2DEG) % 360) + 360) % 360;
         const setText = (key: ChipKey, text: string) => {
           const el = overlay.chips.current[key];
           if (el && el.textContent !== text) el.textContent = text;
