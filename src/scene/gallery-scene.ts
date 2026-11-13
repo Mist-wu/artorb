@@ -468,9 +468,20 @@ export function createGalleryScene({
   }
 
   function onWheel(e: WheelEvent) {
-    if (controls.current.shape !== 'grid') return;
+    const shape = controls.current.shape;
+    if (shape === 'about') return;
     e.preventDefault();
-    gridScroll += 0.014 * e.deltaY;
+    if (shape === 'grid') {
+      gridScroll += 0.014 * e.deltaY;
+      return;
+    }
+    if (focused) return;
+    // Wheel turns the orb like a drag: vertical scroll tilts, horizontal scroll
+    // (trackpads, or Shift+wheel) spins. Line-mode deltas (Firefox) become pixels.
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? container.clientHeight : 1;
+    const limit = 0.08;
+    tiltVelocity = MathUtils.clamp(tiltVelocity - 0.00016 * e.deltaY * unit, -limit, limit);
+    spinVelocity = MathUtils.clamp(spinVelocity - 0.00016 * e.deltaX * unit, -limit, limit);
   }
 
   function onResize() {
