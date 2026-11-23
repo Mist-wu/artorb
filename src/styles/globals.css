@@ -3,23 +3,18 @@
 @source "../../index.html";
 
 @theme {
-  --default-font-family: Arial, "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Defined in navigation.css, which the credits page loads too. */
+  --default-font-family: var(--artorb-font-sans);
 }
 
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
   html {
-    scroll-behavior: smooth;
     font-size: 16px;
   }
   body {
     color: #fff;
-    -webkit-text-stroke: 0.25px currentColor;
-    background: #b0b0b0;
+    background: #bfbfbf;
     min-height: 100vh;
-    font-family: Neue Haas Display, -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.125rem;
     font-weight: 400;
     line-height: 1.6;
@@ -33,7 +28,6 @@
     font-size: 14px;
   }
   body {
-    font-size: 1.125rem;
     line-height: 1.7;
   }
 }

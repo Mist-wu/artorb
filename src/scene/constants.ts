@@ -1,11 +1,6 @@
 import type { Shape } from '../data/views.ts';
 
 export const BACKGROUND = '#bfbfbf';
-/** Default frame / chip colour of the overlay. */
-export const FRAME_COLOR = '#26262b';
-/** Fallback accents, picked by card index when a thumbnail has no clear hue. */
-export const ACCENTS = ['#00c853', '#2979ff', '#ff2fae', '#ffc400', '#e8442e'];
-
 /** Per-shape drift amplitude (`noise`) and card size multiplier (`card`). */
 export const SHAPE_TUNING: Record<Shape, { noise: number; card: number }> = {
   sphere: { noise: 1, card: 1 },
