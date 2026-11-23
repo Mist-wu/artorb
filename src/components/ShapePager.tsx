@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { Ref } from 'react';
-import { SHAPES, type Shape } from '../data/views.ts';
+import { LABELS, SHAPES, type Shape } from '../data/views.ts';
 import { CaretLeftIcon, CaretRightIcon } from './icons.tsx';
 
-export const SNAPPY_SPRING = { type: 'spring', stiffness: 480, damping: 30, mass: 0.8 } as const;
+const SNAPPY_SPRING = { type: 'spring', stiffness: 480, damping: 30, mass: 0.8 } as const;
 
 interface ShapePagerProps {
   menuRef: Ref<HTMLDivElement>;
@@ -19,7 +19,7 @@ interface ShapePagerProps {
   selectShape(shape: Shape): void;
 }
 
-/** Bottom-left `‹ sphere ›` pager; hovering or tapping the label opens the full list. */
+/** Bottom-left `‹ 球体 ›` pager; clicking the label opens the full list. */
 export function ShapePager({
   menuRef,
   visible,
@@ -34,8 +34,7 @@ export function ShapePager({
   return (
     <div
       ref={menuRef}
-      onMouseEnter={() => setMenuOpen(true)}
-      onMouseLeave={() => setMenuOpen(false)}
+      inert={!visible}
       className="absolute bottom-3.5 left-[30px] z-20 sm:bottom-5 sm:left-6"
     >
       <motion.div
@@ -54,7 +53,7 @@ export function ShapePager({
             <motion.div key="list" className="flex items-center gap-4 px-1">
               {SHAPES.map((shape, i) => (
                 <motion.button
-                  key={shape.id}
+                  key={shape}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0, transition: { ...SNAPPY_SPRING, delay: 0.035 * i } }}
                   exit={{
@@ -64,12 +63,13 @@ export function ShapePager({
                   }}
                   whileTap={{ scale: 0.92 }}
                   onClick={() => {
-                    selectShape(shape.id);
+                    selectShape(shape);
                     setMenuOpen(false);
                   }}
-                  className={`cursor-pointer transition-colors duration-200 ${shape.id === SHAPES[shapeIndex].id ? 'text-black/85' : 'text-black/35 hover:text-black/70'}`}
+                  aria-pressed={shape === SHAPES[shapeIndex]}
+                  className={`cursor-pointer transition-colors duration-200 ${shape === SHAPES[shapeIndex] ? 'text-black/85' : 'text-black/60 hover:text-black'}`}
                 >
-                  {shape.label}
+                  {LABELS[shape]}
                 </motion.button>
               ))}
             </motion.div>
@@ -87,20 +87,22 @@ export function ShapePager({
             >
               <motion.button
                 onClick={() => step(-1)}
+                aria-label="上一个形状"
                 whileHover={{ scale: 1.2, x: -2 }}
                 whileTap={{ scale: 0.8 }}
                 transition={SNAPPY_SPRING}
-                className="-ml-[5px] grid h-8 w-8 cursor-pointer place-items-center text-black/35 transition-colors hover:text-black"
+                className="-ml-[5px] grid h-8 w-8 cursor-pointer place-items-center text-black/60 transition-colors hover:text-black"
               >
                 <CaretLeftIcon size={15} />
               </motion.button>
               <button
                 onClick={() => setMenuOpen(true)}
+                aria-label={`选择形状，当前为${LABELS[SHAPES[shapeIndex]]}`}
                 className="relative block h-[20px] w-[64px] cursor-pointer overflow-hidden text-center text-black/85"
               >
                 <AnimatePresence initial={false} custom={direction}>
                   <motion.span
-                    key={SHAPES[shapeIndex].label}
+                    key={SHAPES[shapeIndex]}
                     custom={direction}
                     variants={{
                       enter: (d: number) => ({ x: 22 * d, opacity: 0 }),
@@ -113,16 +115,17 @@ export function ShapePager({
                     transition={SNAPPY_SPRING}
                     className="absolute inset-0"
                   >
-                    {SHAPES[shapeIndex].label}
+                    {LABELS[SHAPES[shapeIndex]]}
                   </motion.span>
                 </AnimatePresence>
               </button>
               <motion.button
                 onClick={() => step(1)}
+                aria-label="下一个形状"
                 whileHover={{ scale: 1.2, x: 2 }}
                 whileTap={{ scale: 0.8 }}
                 transition={SNAPPY_SPRING}
-                className="grid h-8 w-8 cursor-pointer place-items-center text-black/35 transition-colors hover:text-black"
+                className="grid h-8 w-8 cursor-pointer place-items-center text-black/60 transition-colors hover:text-black"
               >
                 <CaretRightIcon size={15} />
               </motion.button>

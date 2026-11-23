@@ -1,12 +1,11 @@
 /* Overlay that the render loop moves around the cloud / hovered / focused card. */
-.cloud-value-chip {
-  background: var(--cvframe);
-  transition: opacity .18s, background .3s;
-}
 .cloud-overlay { transition: opacity .3s; }
 .cloud-bbox {
   border: 1px solid var(--cvframe);
   transition: border-color .3s;
 }
-.cloud-overlay[data-mode=card] .cloud-value-chip,
-.cloud-overlay[data-mode=focus] .cloud-value-chip { opacity: 0; }
+/* Offsets are from the inside of the 1px border. Label: on the top-left edge
+   (centred on the top edge, 96px in, around the cloud); caption: under the bottom-right corner. */
+.cloud-label { left: -1px; top: 0; transform: translateY(-100%); }
+.cloud-overlay[data-mode=cloud] .cloud-label { left: 95px; top: -1px; transform: translateY(-50%); }
+.cloud-caption { right: -1px; top: 100%; }

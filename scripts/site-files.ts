@@ -2,9 +2,13 @@
  * Build-time content derived from data/artworks.json and src/site.ts:
  * credits table rows and the Cloudflare Pages deployment files.
  */
+import artworksJson from '../data/artworks.json' with { type: 'json' };
 import { thumbPath } from '../src/data/gallery.ts';
 import type { Artwork } from '../src/data/types.ts';
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from '../src/site.ts';
+
+/** The full source list; the gallery page only gets its scene fields. */
+export const artworks = artworksJson as Artwork[];
 
 /** Same escaping as Python's html.escape(s, quote=True). */
 export function escapeHtml(s: string): string {
@@ -24,12 +28,21 @@ export function fillSiteTokens(html: string): string {
     .replaceAll('%SITE_DESCRIPTION%', escapeHtml(SITE_DESCRIPTION));
 }
 
+/** Lead paragraph of the credits page. */
+export function creditSummary(arts: Artwork[]): string {
+  const licenses = [...new Set(arts.map((a) => a.license))].join(' / ');
+  return escapeHtml(
+    `全部 ${arts.length} 幅作品的图片来自 Wikimedia Commons，许可均为 ${licenses}。` +
+      '每一行链接到该图片的 Commons 文件页和原图。公版状态因法域而异，二次使用前请查看对应的文件页。',
+  );
+}
+
 /** One table row per artwork: image, Commons page, artist · year, original file. */
 export function creditRows(arts: Artwork[]): string {
   return arts
     .map(
       (a) =>
-        `<tr><td><img src="${a.img}" alt="${escapeHtml(a.title)}" loading="lazy"></td>` +
+        `<tr><td><img src="${thumbPath(a)}" alt="${escapeHtml(a.title)}" loading="lazy"></td>` +
         `<td><a href="${escapeHtml(a.source)}" target="_blank" rel="noopener noreferrer">${escapeHtml(a.title)}</a>` +
         `<br><small>${escapeHtml(a.artist)} · ${a.year}</small></td>` +
         `<td><a href="${escapeHtml(a.original)}">原图 ↗</a></td></tr>`,

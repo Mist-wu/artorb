@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react';
 
-/** Text whose letters roll in one by one when it changes. */
+/** Text whose letters roll in one by one when it changes. Label the parent for screen readers. */
 export function AnimatedText({ text }: { text: string }) {
   return (
-    <span className="inline-flex overflow-hidden">
+    <span aria-hidden className="inline-flex overflow-hidden">
       <AnimatePresence mode="popLayout" initial={false}>
         {text.split('').map((char, i) => (
           <motion.span

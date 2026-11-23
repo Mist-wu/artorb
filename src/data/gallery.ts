@@ -1,8 +1,6 @@
-import artworksJson from '../../data/artworks.json' with { type: 'json' };
 import storiesJson from '../../data/stories.json' with { type: 'json' };
-import type { Artwork, GalleryItem, Story } from './types.ts';
+import type { Artwork, GalleryItem, SceneArtwork, Story } from './types.ts';
 
-export const artworks = artworksJson as Artwork[];
 export const stories = storiesJson as Story[];
 
 /** Cards in the scene. The 56 artworks repeat to fill the cloud. */
@@ -14,13 +12,19 @@ export function thumbPath(art: Pick<Artwork, 'img'>): string {
   return '/art/thumbs/' + art.img.slice(art.img.lastIndexOf('/') + 1);
 }
 
-export function buildGalleryItems(arts: Artwork[], count = CARD_COUNT): GalleryItem[] {
-  return Array.from({ length: count }, (_, i) => {
+/** Drop the provenance fields the scene never reads; they stay in `/artworks.json`. */
+export function sceneArtwork({ id, title, artist, year, img, w, h, source, tag }: Artwork): SceneArtwork {
+  return { id, title, artist, year, img, w, h, source, tag };
+}
+
+export function buildGalleryItems(arts: SceneArtwork[]): GalleryItem[] {
+  return Array.from({ length: CARD_COUNT }, (_, i) => {
     const art = arts[i % arts.length];
     return {
       id: `${art.id}:${i}`,
+      artworkId: art.id,
       date: String(art.year),
-      text: `《${art.title}》 · ${art.artist} · ${art.year}`,
+      title: art.title,
       url: art.source,
       img: thumbPath(art),
       imgFull: art.img,
@@ -32,5 +36,3 @@ export function buildGalleryItems(arts: Artwork[], count = CARD_COUNT): GalleryI
     };
   });
 }
-
-export const galleryItems = buildGalleryItems(artworks);

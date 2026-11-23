@@ -10,7 +10,7 @@ export function accentFromImage(image: CanvasImageSource, seed: number): string 
   try {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 20;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return fallback;
     ctx.drawImage(image, 0, 0, 20, 20);
     const data = ctx.getImageData(0, 0, 20, 20).data;
@@ -27,8 +27,7 @@ export function accentFromImage(image: CanvasImageSource, seed: number): string 
       const chroma = 1 - Math.abs(2 * light - 1);
       const weight = (chroma === 0 ? 0 : (max - min) / chroma) * (1 - 1.3 * Math.abs(light - 0.5));
       if (weight < 0.35 || max === min) continue;
-      let sector = 0;
-      sector =
+      const sector =
         max === r
           ? ((g - b) / (max - min)) % 6
           : max === g

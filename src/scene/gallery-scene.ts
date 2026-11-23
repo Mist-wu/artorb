@@ -1,5 +1,4 @@
 import {
-  Clock,
   Color,
   Group,
   MathUtils,
@@ -12,13 +11,21 @@ import {
   SRGBColorSpace,
   Scene,
   TextureLoader,
+  Timer,
   Vector2,
   Vector3,
   WebGLRenderer,
   type Texture,
 } from 'three';
 import type { GalleryItem } from '../data/types.ts';
-import { tagMatchesFilter, type FilterId, type Shape, type ViewMode } from '../data/views.ts';
+import {
+  distinctArtworks,
+  stepArtwork,
+  tagMatchesFilter,
+  type FilterId,
+  type Shape,
+  type ViewMode,
+} from '../data/views.ts';
 import { accentFromImage } from './accent.ts';
 import {
   ACCENTS,
@@ -31,6 +38,7 @@ import {
 } from './constants.ts';
 import { shapePoint, spherePoint } from './layouts.ts';
 import { hashNoise, shuffle } from './noise.ts';
+import { sharedLoads, thumbnailGroups, type Settle } from './shared-loads.ts';
 
 /** State the React UI writes and the render loop reads every frame. */
 export interface SceneControls {
@@ -46,15 +54,10 @@ export interface SceneCallbacks {
   onReady(): void;
 }
 
-export type ChipKey = 'rotate' | 'noise' | 'zoom' | 'shape' | 'depth';
-
 /** DOM elements of the 2D overlay that tracks the cloud / hovered / focused card. */
 export interface OverlayRefs {
   root: { current: HTMLDivElement | null };
   bbox: { current: HTMLDivElement | null };
-  label: { current: HTMLDivElement | null };
-  caption: { current: HTMLDivElement | null };
-  chips: { current: Partial<Record<ChipKey, HTMLSpanElement | null>> };
 }
 
 export interface GallerySceneOptions {
@@ -90,6 +93,10 @@ interface Card {
   ordinal: number;
   /** Passes the current filter. */
   on: boolean;
+  /** First card of its artwork; the grid shows only these. */
+  primary: boolean;
+  /** Passes the filter and is part of the current layout. */
+  shown: boolean;
   baseW: number;
   baseH: number;
 }
@@ -117,19 +124,15 @@ export function createGalleryScene({
   overlay,
 }: GallerySceneOptions): () => void {
   const scene = new Scene();
-  const camera = new PerspectiveCamera(
-    CAMERA_FOV,
-    container.clientHeight > 0 && container.clientWidth > 0
-      ? container.clientWidth / container.clientHeight
-      : 1,
-    0.1,
-    120,
-  );
+  /** Container size, refreshed by the ResizeObserver. */
+  let viewW = container.clientWidth;
+  let viewH = container.clientHeight;
+  const camera = new PerspectiveCamera(CAMERA_FOV, viewH > 0 && viewW > 0 ? viewW / viewH : 1, 0.1, 120);
   camera.position.z = 15;
   const renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setClearColor(0, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setSize(viewW, viewH);
   renderer.outputColorSpace = SRGBColorSpace;
   container.appendChild(renderer.domElement);
 
@@ -137,6 +140,7 @@ export function createGalleryScene({
   const geometry = new PlaneGeometry(1, 1);
   const cards: Card[] = [];
   const pickables: Mesh[] = [];
+  const primaryOf = new Map<string, Card>();
   items.forEach((item, index) => {
     const aspect = item.w / Math.max(1, item.h);
     const baseW = aspect >= 1 ? CARD_SIZE : CARD_SIZE * aspect;
@@ -168,7 +172,7 @@ export function createGalleryScene({
     group.add(frameMesh);
     group.add(imgMesh);
     scene.add(group);
-    cards.push({
+    const card: Card = {
       group,
       imgMesh,
       frameMesh,
@@ -190,77 +194,92 @@ export function createGalleryScene({
       sortDist: 15,
       ordinal: index,
       on: true,
+      primary: !primaryOf.has(item.artworkId),
+      shown: true,
       baseW,
       baseH,
-    });
+    };
+    if (card.primary) primaryOf.set(item.artworkId, card);
+    cards.push(card);
     pickables.push(imgMesh);
   });
 
-  // ── Thumbnail loading (recap cards first, a few at a time) ───────────────
   const loader = new TextureLoader();
   loader.setCrossOrigin('anonymous');
-  const loadQueue = [...cards].sort((a, b) => Number(b.item.recap) - Number(a.item.recap));
+  let disposed = false;
+
+  /** Load an sRGB texture; nothing is reported once the scene is gone. */
+  function loadTexture(url: string, settle: Settle<Texture>) {
+    loader.load(
+      url,
+      (tex) => {
+        if (disposed) {
+          tex.dispose();
+          return;
+        }
+        tex.colorSpace = SRGBColorSpace;
+        settle(tex);
+      },
+      undefined,
+      () => {
+        if (!disposed) settle(null);
+      },
+    );
+  }
+
+  // ── Thumbnails: each distinct image once, recap cards first, a few at a time ──
+  const thumbGroups = thumbnailGroups(items);
+  const thumbTextures: Texture[] = [];
+  const fullImages = sharedLoads(loadTexture);
   let queueCursor = 0;
   let inFlight = 0;
-  let disposed = false;
   let settledCount = 0;
   let readyFired = false;
-  const readyThreshold = Math.ceil(READY_SHARE * cards.length);
-  const thumbTextures: Texture[] = [];
-  const fullTextures = new Map<string, Texture>();
+  const readyThreshold = Math.ceil(READY_SHARE * thumbGroups.length);
 
   function fireReady() {
+    if (readyFired || disposed) return;
     readyFired = true;
     callbacks.current.onReady();
   }
-  function markSettled() {
-    settledCount++;
-    if (!readyFired && settledCount >= readyThreshold) fireReady();
-  }
-  const readyTimer = setTimeout(() => {
-    if (!readyFired) fireReady();
-  }, READY_TIMEOUT_MS);
+  const readyTimer = setTimeout(fireReady, READY_TIMEOUT_MS);
 
   function pumpQueue() {
-    while (inFlight < MAX_CONCURRENT_LOADS && queueCursor < loadQueue.length && !disposed) {
-      const card = loadQueue[queueCursor++];
+    while (inFlight < MAX_CONCURRENT_LOADS && queueCursor < thumbGroups.length && !disposed) {
+      const [url, indices] = thumbGroups[queueCursor++];
       inFlight++;
-      loader.load(
-        card.item.img,
-        (tex) => {
-          inFlight--;
-          if (disposed) {
-            tex.dispose();
-            return;
-          }
-          tex.colorSpace = SRGBColorSpace;
+      loadTexture(url, (tex) => {
+        inFlight--;
+        if (tex) {
           thumbTextures.push(tex);
-          card.thumbTex = tex;
-          if (tex.image) card.accent = accentFromImage(tex.image as CanvasImageSource, card.seed);
-          card.mat.map = tex;
-          card.baseColor = new Color('#ffffff');
-          card.mat.needsUpdate = true;
-          card.texLoaded = true;
-          markSettled();
-          pumpQueue();
-        },
-        undefined,
-        () => {
-          inFlight--;
-          card.texLoaded = true;
-          markSettled();
-          pumpQueue();
-        },
-      );
+          const accent = accentFromImage(tex.image as CanvasImageSource, indices[0]);
+          for (const i of indices) {
+            const card = cards[i];
+            card.thumbTex = tex;
+            card.accent = accent;
+            card.mat.map = tex;
+            card.baseColor.set('#ffffff');
+            card.mat.needsUpdate = true;
+          }
+        }
+        for (const i of indices) cards[i].texLoaded = true;
+        if (++settledCount >= readyThreshold) fireReady();
+        pumpQueue();
+      });
     }
   }
   pumpQueue();
 
   // ── Filtering & layout state ─────────────────────────────────────────────
   let activeCount = cards.length;
+  /** Distinct artworks passing the filter, in the order ←/→ browse them. */
+  let browseOrder: GalleryItem[] = [];
+  let filter: FilterId = controls.current.filter;
+  /** Last real shape; kept while the story overlay is open. */
+  let layoutShape: Shape = 'sphere';
 
-  /** Recompute which cards pass `filter`; `scatter` drops newly shown cards near the centre. */
-  function applyFilter(filter: FilterId, scatter = false) {
+  /** Recompute which cards `filter` and `layoutShape` show; `scatter` drops newly filtered-in cards near the centre. */
+  function applyFilter(scatter = false) {
     let ordinal = 0;
     for (const card of cards) {
       const on = tagMatchesFilter(card.item.tag, filter);
@@ -268,9 +287,11 @@ export function createGalleryScene({
         card.group.position.set(1.5 * hashNoise(3 * card.seed), 1.5 * hashNoise(5 * card.seed), -2);
       }
       card.on = on;
+      card.shown = on && (layoutShape !== 'grid' || card.primary);
       if (card.on) card.ordinal = ordinal++;
     }
     activeCount = Math.max(1, ordinal);
+    browseOrder = distinctArtworks(items, filter);
   }
 
   const gridOrder = shuffle(cards.map((_, i) => i));
@@ -288,8 +309,6 @@ export function createGalleryScene({
   const stepQuat = new Quaternion();
   let spinVelocity = 0;
   let tiltVelocity = 0;
-  /** Last real shape; kept while the story overlay is open. */
-  let layoutShape: Shape = 'sphere';
   let startedAt = 0;
   let heroCard: Card | null = null;
   let heroUntil = 0;
@@ -301,13 +320,13 @@ export function createGalleryScene({
 
   /** Scale at which a card fills the intro/focus slot in front of the camera. */
   function heroScale(card: Card) {
-    const h = container.clientHeight;
-    const px = Math.min(
-      0.56 * h,
-      520,
-      Math.min(0.8 * container.clientWidth, 620) * (card.baseH / card.baseW),
-    );
-    return (12 * Math.tan(HALF_FOV) * (px / h)) / card.baseH;
+    const px = Math.min(0.56 * viewH, 520, Math.min(0.8 * viewW, 620) * (card.baseH / card.baseW));
+    return (12 * Math.tan(HALF_FOV) * (px / viewH)) / card.baseH;
+  }
+
+  /** Enlarged size of a hovered grid card, never smaller than its grid size. */
+  function gridHoverScale(card: Card) {
+    return Math.max(card.gridScale, Math.min(2.2 * card.gridScale, 3.4 / card.baseH, 4.6 / card.baseW));
   }
 
   let aboutBlend = 0;
@@ -315,7 +334,8 @@ export function createGalleryScene({
   let shapeBlend = 0;
   let noiseLevel = 1;
   let cardLevel = 1;
-  let dragging = false;
+  /** Pointer that started the current drag; only its release can click. */
+  let dragPointer: number | null = null;
   let lastX = 0;
   let lastY = 0;
   let downX = 0;
@@ -337,10 +357,12 @@ export function createGalleryScene({
   let autoHover = false;
   let hovered: Card | null = null;
   let focused: Card | null = null;
-  let lastHoverId: string | null = null;
-  let filter = controls.current.filter;
+  /** 0 → 1 while a card is focused; every other card fades back. */
+  let focusBlend = 0;
+  /** Last focused card, kept at full opacity while the cloud fades back in. */
+  let spotlit: Card | null = null;
 
-  applyFilter(filter);
+  applyFilter();
   {
     const p = new Vector3();
     for (const card of cards) {
@@ -355,28 +377,13 @@ export function createGalleryScene({
   function setHovered(card: Card | null) {
     if (card === hovered) return;
     hovered = card;
-    const id = hovered ? hovered.item.id : null;
-    if (id !== lastHoverId) {
-      lastHoverId = id;
-      callbacks.current.onHoverItem(hovered ? hovered.item : null, hovered ? hovered.accent : null);
-    }
+    callbacks.current.onHoverItem(card ? card.item : null, card ? card.accent : null);
   }
 
-  /** Swap in the 960px texture of a focused card, loading it once. */
+  /** Swap in the 960px texture of a focused card; each image is loaded once. */
   function showFullImage(card: Card) {
-    const cached = fullTextures.get(card.item.id);
-    if (cached) {
-      card.mat.map = cached;
-      card.mat.needsUpdate = true;
-      return;
-    }
-    loader.load(card.item.imgFull, (tex) => {
-      if (disposed) {
-        tex.dispose();
-        return;
-      }
-      tex.colorSpace = SRGBColorSpace;
-      fullTextures.set(card.item.id, tex);
+    fullImages.request(card.item.imgFull, (tex) => {
+      if (!tex) return;
       card.mat.map = tex;
       card.mat.needsUpdate = true;
     });
@@ -385,7 +392,10 @@ export function createGalleryScene({
   function setFocused(card: Card | null) {
     if (focused === card) return;
     focused = card;
-    if (focused) showFullImage(focused);
+    if (focused) {
+      spotlit = focused;
+      showFullImage(focused);
+    }
     callbacks.current.onFocusChange(focused ? focused.item : null, focused ? focused.accent : null);
   }
 
@@ -401,21 +411,21 @@ export function createGalleryScene({
     raycaster.setFromCamera(tmpNdc, camera);
     for (const hit of raycaster.intersectObjects(pickables, false)) {
       const card = cards[hit.object.userData.cardIndex];
-      if (card.on && card.visScale > 0.5) return card;
+      if (card.shown && card.visScale > 0.5) return card;
     }
     return null;
   }
 
   // ── Input ────────────────────────────────────────────────────────────────
   function onPointerDown(e: PointerEvent) {
-    if (e.target !== renderer.domElement) return;
-    dragging = true;
+    if (e.target !== renderer.domElement || dragPointer !== null) return;
+    dragPointer = e.pointerId;
     lastX = e.clientX;
     lastY = e.clientY;
     downX = e.clientX;
     downY = e.clientY;
     try {
-      container?.setPointerCapture(e.pointerId);
+      container.setPointerCapture(e.pointerId);
     } catch {
       /* capture is best effort */
     }
@@ -429,7 +439,7 @@ export function createGalleryScene({
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       (-(e.clientY - rect.top) / rect.height) * 2 + 1,
     );
-    if (!dragging) return;
+    if (e.pointerId !== dragPointer) return;
     const dx = e.clientX - lastX;
     const dy = e.clientY - lastY;
     lastX = e.clientX;
@@ -444,9 +454,15 @@ export function createGalleryScene({
     }
   }
 
+  /** End the drag if `pointerId` started it; repeated or foreign calls do nothing. */
+  function endDrag(pointerId: number): boolean {
+    if (pointerId !== dragPointer) return false;
+    dragPointer = null;
+    return true;
+  }
+
   function onPointerUp(e: PointerEvent) {
-    if (e.target !== renderer.domElement && !dragging) return;
-    dragging = false;
+    if (!endDrag(e.pointerId)) return;
     if (Math.hypot(e.clientX - downX, e.clientY - downY) >= 5) return;
     if (focused) {
       setFocused(null);
@@ -456,14 +472,17 @@ export function createGalleryScene({
     if (card) setFocused(card);
   }
 
+  /** `pointercancel` and an unexpected `lostpointercapture` only stop the drag. */
+  function onPointerCancel(e: PointerEvent) {
+    endDrag(e.pointerId);
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') setFocused(null);
     if (focused && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
       e.preventDefault();
-      const step = e.key === 'ArrowRight' ? 1 : -1;
-      const ordinal = (((focused.ordinal + step) % activeCount) + activeCount) % activeCount;
-      const next = cards.find((c) => c.on && c.ordinal === ordinal);
-      if (next) setFocused(next);
+      const next = stepArtwork(browseOrder, focused.item.artworkId, e.key === 'ArrowRight' ? 1 : -1);
+      if (next) setFocused(primaryOf.get(next.artworkId)!);
     }
   }
 
@@ -478,26 +497,29 @@ export function createGalleryScene({
     if (focused) return;
     // Wheel turns the orb like a drag: vertical scroll tilts, horizontal scroll
     // (trackpads, or Shift+wheel) spins. Line-mode deltas (Firefox) become pixels.
-    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? container.clientHeight : 1;
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewH : 1;
     const limit = 0.08;
     tiltVelocity = MathUtils.clamp(tiltVelocity - 0.00016 * e.deltaY * unit, -limit, limit);
     spinVelocity = MathUtils.clamp(spinVelocity - 0.00016 * e.deltaX * unit, -limit, limit);
   }
 
   function onResize() {
-    if (!container || container.clientWidth <= 0 || container.clientHeight <= 0) return;
-    camera.aspect = container.clientWidth / container.clientHeight;
+    if (container.clientWidth <= 0 || container.clientHeight <= 0) return;
+    viewW = container.clientWidth;
+    viewH = container.clientHeight;
+    camera.aspect = viewW / viewH;
     camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setSize(viewW, viewH);
     targetZ = fitDistance();
   }
 
   container.addEventListener('pointerdown', onPointerDown);
   container.addEventListener('pointermove', onPointerMove);
   container.addEventListener('pointerup', onPointerUp);
+  container.addEventListener('pointercancel', onPointerCancel);
+  container.addEventListener('lostpointercapture', onPointerCancel);
   container.addEventListener('wheel', onWheel, { passive: false });
   window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('resize', onResize);
   const resizeObserver = new ResizeObserver(onResize);
   resizeObserver.observe(container);
 
@@ -506,46 +528,52 @@ export function createGalleryScene({
   const desired = new Vector3();
   const projected = new Vector3();
   let rafId = 0;
-  let frameCount = 0;
   const box: Box & { init: boolean } = { x: 0, y: 0, w: 0, h: 0, init: false };
   const lastBox: Box = { x: 0, y: 0, w: 0, h: 0 };
   const tweenFrom: Box = { x: 0, y: 0, w: 0, h: 0 };
   let tweenStart = -1e9;
   /** Card the overlay box was last snapped to (null = whole cloud). */
   let boxTarget: Card | null | undefined;
-  const clock = new Clock();
+  const timer = new Timer();
 
-  function frame() {
+  function frame(timestamp?: number) {
     rafId = requestAnimationFrame(frame);
-    const dt = Math.min(clock.getDelta(), 0.05);
-    const elapsed = clock.elapsedTime;
+    timer.update(timestamp);
+    const dt = Math.min(timer.getDelta(), 0.05);
+    const elapsed = timer.getElapsed();
     const now = performance.now();
     const ctl = controls.current;
 
-    if (ctl.filter !== filter) {
+    const shape = ctl.shape === 'about' ? layoutShape : ctl.shape;
+    if (ctl.filter !== filter || shape !== layoutShape) {
+      const scatter = ctl.filter !== filter;
       filter = ctl.filter;
-      applyFilter(filter, true);
-      if (focused && !focused.on) setFocused(null);
+      layoutShape = shape;
+      applyFilter(scatter);
+      // The grid keeps one card per artwork: focus moves onto it, a hidden hover is dropped.
+      if (focused && !focused.shown) setFocused(focused.on ? primaryOf.get(focused.item.artworkId)! : null);
+      if (hovered && !hovered.shown) setHovered(null);
     }
-    if (ctl.shape !== 'about') layoutShape = ctl.shape;
     if (ctl.shape === 'about' && focused) setFocused(null);
     aboutBlend += (Number(ctl.shape === 'about') - aboutBlend) * 0.11;
+    focusBlend += (Number(!!focused) - focusBlend) * 0.12;
 
     const halfH = Math.tan(HALF_FOV) * camera.position.z;
     const portraitLift = camera.aspect < 0.8 ? -(0.07 * halfH) : 0;
 
-    // Grid: masonry columns, shortest column first.
+    // Grid: masonry columns, shortest column first. A few results get fewer,
+    // centred columns, with cards capped by the visible height.
     if (layoutShape === 'grid') {
       const width = halfH * camera.aspect * 1.84;
-      const columns = Math.max(2, Math.round(width / 1.7));
-      const colW = width / columns;
+      const columns = Math.max(1, Math.min(Math.max(2, Math.round(width / 1.7)), browseOrder.length));
+      const colW = Math.min(width / columns, 0.8 * halfH);
       const cardW = 0.92 * colW;
       const gap = 0.08 * colW;
       const heights: number[] = Array(columns).fill(0);
       for (const index of gridOrder) {
         const card = cards[index];
-        if (!card.on) continue;
-        const scale = cardW / card.baseW;
+        if (!card.shown) continue;
+        const scale = Math.min(cardW / card.baseW, (1.1 * halfH) / card.baseH);
         const h = card.baseH * scale;
         let col = 0;
         for (let c = 1; c < columns; c++) if (heights[c] < heights[col]) col = c;
@@ -555,8 +583,8 @@ export function createGalleryScene({
         heights[col] += h + gap;
       }
       gridHeight = Math.max(...heights);
-      gridTop = 0.8 * halfH;
-      if (!dragging) {
+      gridTop = Math.min(0.8 * halfH, gridHeight / 2);
+      if (dragPointer === null) {
         gridScroll += gridVelocity;
         gridVelocity *= 0.94;
       }
@@ -605,17 +633,17 @@ export function createGalleryScene({
     // Intro: a recap card holds the centre, then flies to the front-most slot.
     if (ctl.started && !startedAt) {
       startedAt = now;
-      const candidates = cards.filter((c) => c.item.recap && c.on && c.texLoaded && c.thumbTex);
+      const candidates = cards.filter((c) => c.item.recap && c.shown && c.texLoaded && c.thumbTex);
       if (candidates.length) previewCard = candidates[Math.floor(Math.random() * candidates.length)];
       if (previewCard) {
         heroCard = previewCard;
         heroUntil = now + 1600;
         heroCard.introDelay = 0;
-        if (heroCard.on) {
+        if (heroCard.shown) {
           let front: Card | null = null;
           let best = -Infinity;
           for (const card of cards) {
-            if (!card.on) continue;
+            if (!card.shown) continue;
             spherePoint(card.ordinal, activeCount, desired);
             desired.applyQuaternion(orientation);
             const score = desired.z - (Math.abs(desired.x) + Math.abs(desired.y)) * 1.5;
@@ -645,7 +673,6 @@ export function createGalleryScene({
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    const view = { w: container.clientWidth, h: container.clientHeight };
 
     for (const card of cards) {
       const ordinal = card.ordinal;
@@ -664,7 +691,7 @@ export function createGalleryScene({
       }
 
       const due = ctl.started && now - startedAt >= card.introDelay;
-      const visible = card.on && due && card.texLoaded ? 1 : 0;
+      const visible = card.shown && due && card.texLoaded ? 1 : 0;
       if (visible > 0 && !card.introduced) {
         card.introduced = true;
         card.visScale = 1;
@@ -673,7 +700,7 @@ export function createGalleryScene({
       if (card.introduced) card.introBlend += (1 - card.introBlend) * 0.055;
       card.visScale += (visible - card.visScale) * 0.12;
 
-      if (card.on) {
+      if (card.shown) {
         if (layoutShape === 'grid') {
           target.set(card.gridX, gridTop - card.gridY + gridScroll, 0.06 * hashNoise(5 * ordinal + 4));
         } else {
@@ -688,7 +715,7 @@ export function createGalleryScene({
           desired.set(0, 0.25, camera.position.z - FOCUS_DEPTH);
         } else if (card === hovered && !autoHover && layoutShape === 'grid') {
           // Keep the enlarged grid card inside the viewport.
-          const s = Math.min(2.2 * card.gridScale, 3.4 / card.baseH, 4.6 / card.baseW);
+          const s = gridHoverScale(card);
           const halfW = (card.baseW * s) / 2 + 0.15;
           const halfHt = (card.baseH * s) / 2 + 0.15;
           const halfViewW = halfH * camera.aspect;
@@ -705,13 +732,14 @@ export function createGalleryScene({
         const fullW = fullH * camera.aspect;
         scale = Math.min((0.62 * fullH) / card.baseH, (0.82 * fullW) / card.baseW);
       } else if (card === hovered && !autoHover && layoutShape === 'grid') {
-        scale = Math.min(2.2 * card.gridScale, 3.4 / card.baseH, 4.6 / card.baseW);
+        scale = gridHoverScale(card);
       }
       card.hoverScale += (scale - card.hoverScale) * (card === heroCard && now < heroUntil ? 0.045 : 0.12);
       card.group.scale.setScalar(Math.max(1e-4, card.hoverScale * card.visScale));
       card.mat.color.copy(card.baseColor);
-      card.mat.opacity = card.introBlend;
-      card.frameMesh.material.opacity = card.introBlend;
+      const opacity = card === spotlit ? card.introBlend : card.introBlend * (1 - 0.8 * focusBlend);
+      card.mat.opacity = opacity;
+      card.frameMesh.material.opacity = opacity;
 
       // Painter's order: depth test is off, so sort by smoothed camera distance.
       const dist = card.group.position.distanceTo(camera.position);
@@ -722,11 +750,11 @@ export function createGalleryScene({
       card.frameMesh.renderOrder = order;
       card.imgMesh.renderOrder = order + 0.5;
 
-      if (card.on && card !== focused && card.visScale > 0.5) {
+      if (card.shown && card !== focused && card.visScale > 0.5) {
         projected.copy(card.group.position).project(camera);
         if (projected.z < 1) {
-          const sx = (0.5 * projected.x + 0.5) * view.w;
-          const sy = (-(0.5 * projected.y) + 0.5) * view.h;
+          const sx = (0.5 * projected.x + 0.5) * viewW;
+          const sy = (-(0.5 * projected.y) + 0.5) * viewH;
           if (sx < minX) minX = sx;
           if (sx > maxX) maxX = sx;
           if (sy < minY) minY = sy;
@@ -736,7 +764,8 @@ export function createGalleryScene({
     }
 
     // Hover: idle visitors get a random card highlighted every few seconds.
-    const idle = ctl.started && ctl.shape !== 'about' && now - lastPointerAt > 2500 && !dragging && !focused;
+    const idle =
+      ctl.started && ctl.shape !== 'about' && now - lastPointerAt > 2500 && dragPointer === null && !focused;
     autoHover = idle;
     if (ctl.shape === 'about' && hovered && hovered !== focused) setHovered(null);
     if (idle) {
@@ -747,7 +776,7 @@ export function createGalleryScene({
           raycaster.setFromCamera(tmpNdc, camera);
           for (const hit of raycaster.intersectObjects(pickables, false)) {
             const card = cards[hit.object.userData.cardIndex];
-            if (card.on && card.visScale > 0.5) {
+            if (card.shown && card.visScale > 0.5) {
               setHovered(card);
               break attempts;
             }
@@ -761,7 +790,7 @@ export function createGalleryScene({
       let hit: Card | null = null;
       for (const h of raycaster.intersectObjects(pickables, false)) {
         const card = cards[h.object.userData.cardIndex];
-        if (card.on && card.visScale > 0.5) {
+        if (card.shown && card.visScale > 0.5) {
           hit = card;
           break;
         }
@@ -769,8 +798,7 @@ export function createGalleryScene({
       setHovered(hit);
     }
 
-    container.style.cursor = dragging ? 'grabbing' : hovered ? 'pointer' : 'grab';
-    frameCount++;
+    container.style.cursor = dragPointer !== null ? 'grabbing' : hovered ? 'pointer' : 'grab';
 
     // ── Overlay box: around the focused/hovered card, else around the cloud ──
     const bboxEl = overlay.bbox.current;
@@ -784,11 +812,11 @@ export function createGalleryScene({
       const hh = (boxCard.baseH / 2) * boxCard.group.scale.y;
       const pos = boxCard.group.position;
       projected.set(pos.x - hw, pos.y + hh, pos.z).project(camera);
-      const left = (0.5 * projected.x + 0.5) * view.w;
-      const top = (-(0.5 * projected.y) + 0.5) * view.h;
+      const left = (0.5 * projected.x + 0.5) * viewW;
+      const top = (-(0.5 * projected.y) + 0.5) * viewH;
       projected.set(pos.x + hw, pos.y - hh, pos.z).project(camera);
-      const right = (0.5 * projected.x + 0.5) * view.w;
-      const bottom = (-(0.5 * projected.y) + 0.5) * view.h;
+      const right = (0.5 * projected.x + 0.5) * viewW;
+      const bottom = (-(0.5 * projected.y) + 0.5) * viewH;
       tx = left - 10;
       ty = top - 10;
       tw = right - left + 20;
@@ -796,8 +824,8 @@ export function createGalleryScene({
     } else if (isFinite(minX)) {
       tx = Math.max(34, minX - 46);
       ty = Math.max(96, minY - 46);
-      tw = Math.min(view.w - 34, maxX + 46) - tx;
-      th = Math.min(view.h - 34, maxY + 46) - ty;
+      tw = Math.min(viewW - 34, maxX + 46) - tx;
+      th = Math.min(viewH - 34, maxY + 46) - ty;
     } else {
       tx = box.x;
       ty = box.y;
@@ -845,28 +873,6 @@ export function createGalleryScene({
       const y = snap(box.y);
       const w = snap(Math.max(0, box.w));
       const h = snap(Math.max(0, box.h));
-      const place = (el: HTMLElement | null, px: number, py: number) => {
-        if (el) el.style.transform = `translate3d(${snap(px)}px, ${snap(py)}px, 0)`;
-      };
-      const labelEl = overlay.label.current;
-      if (labelEl) {
-        const labelH = labelEl.getBoundingClientRect().height;
-        if (mode === 'cloud') place(labelEl, x + 96, y - labelH / 2);
-        else place(labelEl, x, y + 1 - labelH);
-      }
-      const captionEl = overlay.caption.current;
-      if (captionEl) place(captionEl, x + w - captionEl.getBoundingClientRect().width, y + h - 1);
-      const placeChip = (key: ChipKey, px: number, py: number, anchorX: number) => {
-        const el = overlay.chips.current[key];
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        place(el, px - r.width * anchorX, py - r.height / 2);
-      };
-      placeChip('rotate', x, y, 1 / 3);
-      placeChip('noise', x + w, y, 2 / 3);
-      placeChip('zoom', x, y + h, 1 / 3);
-      placeChip('shape', x + w / 2, y + h, 0.5);
-      placeChip('depth', x + w, y + h, 2 / 3);
       overlayEl.style.opacity =
         ctl.started && ((ctl.shape !== 'about' && ctl.shape !== 'grid') || boxCard) ? '1' : '0';
       overlayEl.dataset.mode = mode;
@@ -874,21 +880,6 @@ export function createGalleryScene({
       bboxEl.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       bboxEl.style.width = `${w}px`;
       bboxEl.style.height = `${h}px`;
-      if (frameCount % 5 == 0) {
-        // Yaw of the orb's front axis, for the rotate chip.
-        const { x: qx, y: qy, z: qz, w: qw } = orientation;
-        const yaw = Math.atan2(2 * (qw * qy + qx * qz), 1 - 2 * (qx * qx + qy * qy));
-        const degrees = (((yaw * MathUtils.RAD2DEG) % 360) + 360) % 360;
-        const setText = (key: ChipKey, text: string) => {
-          const el = overlay.chips.current[key];
-          if (el && el.textContent !== text) el.textContent = text;
-        };
-        setText('rotate', `rotate~ ${degrees.toFixed(1)}`);
-        setText('noise', `noise~ ${noise.toFixed(2)}`);
-        setText('zoom', `zoom~ ${camera.position.z.toFixed(1)}`);
-        setText('shape', `shape~ ${ctl.shape} ${activeCount}`);
-        setText('depth', 'depth~ 0.035');
-      }
     }
 
     renderer.render(scene, camera);
@@ -899,15 +890,16 @@ export function createGalleryScene({
     disposed = true;
     clearTimeout(readyTimer);
     cancelAnimationFrame(rafId);
+    timer.dispose();
     resizeObserver.disconnect();
-    window.removeEventListener('resize', onResize);
     window.removeEventListener('keydown', onKeyDown);
     container.removeEventListener('pointerdown', onPointerDown);
     container.removeEventListener('pointermove', onPointerMove);
     container.removeEventListener('pointerup', onPointerUp);
+    container.removeEventListener('pointercancel', onPointerCancel);
+    container.removeEventListener('lostpointercapture', onPointerCancel);
     container.removeEventListener('wheel', onWheel);
-    thumbTextures.forEach((t) => t.dispose());
-    fullTextures.forEach((t) => t.dispose());
+    for (const tex of [...thumbTextures, ...fullImages.loaded()]) tex.dispose();
     cards.forEach((card) => {
       card.mat.dispose();
       card.frameMesh.material.dispose();

@@ -8,7 +8,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { artworks, thumbPath } from '../src/data/gallery.ts';
+import { thumbPath } from '../src/data/gallery.ts';
+import { artworks } from './site-files.ts';
 
 const PUBLIC = resolve(import.meta.dirname, '../public');
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

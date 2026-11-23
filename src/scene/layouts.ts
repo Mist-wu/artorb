@@ -61,8 +61,8 @@ function starPoint(ordinal: number, out: Vector3): void {
   const along = edgePos - edge;
   const a0 = (edge / 10) * Math.PI * 2 - Math.PI / 2;
   const a1 = ((edge + 1) / 10) * Math.PI * 2 - Math.PI / 2;
-  const r0 = edge % 2 == 0 ? 4.9 : 2;
-  const r1 = edge % 2 == 0 ? 2 : 4.9;
+  const r0 = edge % 2 === 0 ? 4.9 : 2;
+  const r1 = edge % 2 === 0 ? 2 : 4.9;
   const x = Math.cos(a0) * r0 + (Math.cos(a1) * r1 - Math.cos(a0) * r0) * along;
   const y = -(Math.sin(a0) * r0 + (Math.sin(a1) * r1 - Math.sin(a0) * r0) * along);
   const fill = Math.pow(fract(PLASTIC_FRACTION * ordinal), 0.4);

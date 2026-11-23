@@ -19,13 +19,13 @@
 
 ## 特点
 
-- 🌐 **五种形状**：sphere / heart / smiley / star / grid，底部箭头或方向键切换。
-- 🖱️ **自由操作**：拖动旋转，滚轮或双指缩放，悬停看标注，点击进入作品详情。
+- 🌐 **五种形状**：球体 / 心形 / 笑脸 / 星形 / 网格，底部箭头或方向键切换。
+- 🖱️ **自由操作**：拖动或滚轮旋转，悬停看标注，点击进入作品详情。
 - 🖼️ **按需加载**：420px 预览图作三维纹理，点开时才加载 960px 大图。
 - 📖 **中文介绍**：8 段原创短文，手机上也能完整阅读。
 - 🔒 **零依赖外部**：没有账号、没有后端、没有第三方请求，图片全部本地托管。
 
-> 场景里有 307 张卡片，去重后是 56 幅作品（paintings 53 + prints 3），界面计数显示的是实际作品数。
+> 场景里有 307 张卡片，去重后是 56 幅作品（绘画 53 + 版画 3）。网格和聚焦后的左右键按作品去重，界面计数显示的是实际作品数。
 
 ## 图片来源与许可
 
@@ -98,10 +98,11 @@ src/
 ├── components/           界面组件：画布容器、形状切换、筛选、名画介绍
 ├── scene/                three.js 场景
 │   ├── gallery-scene.ts  卡片、加载、交互和逐帧动画
-│   ├── layouts.ts        sphere / heart / smiley / star 的卡片坐标
+│   ├── layouts.ts        球体 / 心形 / 笑脸 / 星形的卡片坐标
+│   ├── shared-loads.ts   按图片 URL 合并纹理请求
 │   ├── accent.ts         从缩略图取强调色
 │   └── constants.ts      颜色、各形状参数
-├── data/                 卡片数据（由 data/*.json 生成）和类型
+├── data/                 卡片数据、显示名和类型（作品字段由 virtual:artorb-artworks 提供）
 ├── navigation.ts         链接悬停与页间淡入淡出（支持减少动态效果）
 ├── credits.ts            来源页入口
 ├── site.ts               域名、标题和描述
@@ -118,7 +119,7 @@ data/
 └── commons-cache/        Wikipedia / Commons API 原始响应
 scripts/
 ├── build.ts              打包并预渲染
-├── site-plugin.ts        Vite 插件：填充模板、生成部署文件、/credits 路由
+├── site-plugin.ts        Vite 插件：填充模板、裁剪场景字段、生成部署文件、/credits 路由
 ├── site-files.ts         来源页表格、_headers、robots.txt、sitemap.xml
 ├── collect-commons.ts    下载并校验公版图片
 └── thumbs.ts             生成缩略图

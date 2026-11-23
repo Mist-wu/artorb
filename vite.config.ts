@@ -10,7 +10,6 @@ export default defineConfig({
   server: { port: 8797 },
   preview: { port: 8799 },
   build: {
-    outDir: 'dist',
     rolldownOptions: {
       input: {
         index: resolve(import.meta.dirname, 'index.html'),

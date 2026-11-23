@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { FILTERS, type FilterId } from '../data/views.ts';
+import { FILTERS, LABELS, type FilterId } from '../data/views.ts';
 
 interface FilterBarProps {
   visible: boolean;
@@ -8,17 +8,18 @@ interface FilterBarProps {
   onSelect(filter: FilterId): void;
 }
 
-/** Bottom-right `all / paintings / prints` switch. */
+/** Bottom-right `全部 / 绘画 / 版画` switch. */
 export function FilterBar({ visible, shownBefore, filter, onSelect }: FilterBarProps) {
   return (
     <div
+      inert={!visible}
       style={{ pointerEvents: visible ? undefined : 'none' }}
       className="absolute bottom-3.5 right-[30px] z-20 flex h-9 items-center gap-6 sm:bottom-5 sm:right-6"
     >
       {FILTERS.map((f, i) => (
         <motion.button
-          key={f.id}
-          onClick={() => onSelect(f.id)}
+          key={f}
+          onClick={() => onSelect(f)}
           whileTap={{ scale: 0.92 }}
           initial={false}
           animate={{ opacity: +!!visible, y: 14 * Number(!visible) }}
@@ -32,9 +33,10 @@ export function FilterBar({ visible, shownBefore, filter, onSelect }: FilterBarP
                 }
               : { duration: 0.14, delay: (FILTERS.length - 1 - i) * 0.025 }
           }
-          className={`cursor-pointer text-[17px] lowercase leading-none transition-colors duration-200 ${filter === f.id ? 'text-black/85' : 'text-black/35 hover:text-black/70'}`}
+          aria-pressed={filter === f}
+          className={`cursor-pointer text-[17px] lowercase leading-none transition-colors duration-200 ${filter === f ? 'text-black/85' : 'text-black/60 hover:text-black'}`}
         >
-          {f.label}
+          {LABELS[f]}
         </motion.button>
       ))}
     </div>
