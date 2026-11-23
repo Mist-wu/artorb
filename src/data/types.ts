@@ -21,5 +21,38 @@ export interface Artwork {
 
 export type ArtworkTag = 'prototype' | 'image';
 
-/** The fields of an artwork the gallery page ships (`virtual:artorb-artworks`). */
-export type SceneArtwork = Pick<Artwork, 'id' | 'title' | 'artist' | 'year' | 'img' | 'w' | 'h' | 'source' | 'tag'>;
+/** One card floating in the 3D scene. Several cards can show the same artwork. */
+export interface GalleryItem {
+  id: string;
+  /** Year as shown on the frame label. */
+  date: string;
+  /** Caption: 《title》 · artist · year. */
+  text: string;
+  /** Commons description page, opened from the focused caption. */
+  url: string;
+  /** 420px thumbnail used as the scene texture. */
+  img: string;
+  /** 960px image loaded when the card is focused. */
+  imgFull: string;
+  /** Highlighted cards: drawn larger, loaded first, may open the intro. */
+  recap: boolean;
+  w: number;
+  h: number;
+  artist: string;
+  tag: ArtworkTag;
+}
+
+/** A segment of story text; the stories currently only use plain text runs. */
+export interface StoryRun {
+  t?: string;
+  href?: string;
+  br?: boolean;
+}
+
+export interface Story {
+  label: string;
+  years: string;
+  city: string;
+  color: string;
+  runs: StoryRun[];
+}

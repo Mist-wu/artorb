@@ -1,6 +1,5 @@
-/* Shared by both pages: the system font stack, quiet links and page transitions. */
+/* Quiet, shared link and page transitions for the gallery. */
 :root {
-  --artorb-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   --artorb-ease: cubic-bezier(.22, 1, .36, 1);
 }
 

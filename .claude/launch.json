@@ -7,6 +7,8 @@
       "runtimeArgs": [
         "vite",
         "preview",
+        "--port",
+        "8799",
         "--strictPort"
       ],
       "port": 8799
@@ -16,6 +18,8 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": [
         "vite",
+        "--port",
+        "8797",
         "--strictPort"
       ],
       "port": 8797

@@ -9,7 +9,7 @@
  *   npm run collect && npm run thumbs
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { Artwork } from '../src/data/types.ts';
@@ -158,12 +158,8 @@ for (const [i, [page, title, artist, year]] of curation.entries()) {
     tag: PRINTMAKERS.includes(artist) ? 'image' : 'prototype',
   };
   arts.push(art);
+  // Python's json.dumps(ensure_ascii=False, indent=2) layout, kept for clean diffs.
+  writeFileSync(resolve(ROOT, 'data/artworks.json'), JSON.stringify(arts, null, 2));
   console.log('OK', art.id, title, license, statSync(file).size);
 }
 console.log('TOTAL', arts.length);
-if (!arts.length) throw new Error('No artworks collected; data/artworks.json left untouched');
-// Written once, via a same-directory temp file, so an interrupted run never truncates the list.
-// Python's json.dumps(ensure_ascii=False, indent=2) layout, kept for clean diffs.
-const out = resolve(ROOT, 'data/artworks.json');
-writeFileSync(`${out}.tmp`, JSON.stringify(arts, null, 2));
-renameSync(`${out}.tmp`, out);

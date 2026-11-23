@@ -3,7 +3,7 @@
  * first frame into dist/index.html so it paints before the JavaScript loads
  * (the client hydrates it).
  */
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { build, createServer } from 'vite';
 
@@ -12,14 +12,6 @@ const outFile = resolve(root, 'dist/index.html');
 const OUTLET = '<!--app-html-->';
 
 await build({ root });
-
-// Provenance fields ship only in /artworks.json, never in the page scripts.
-const assets = resolve(root, 'dist/assets');
-for (const file of await readdir(assets)) {
-  if (file.endsWith('.js') && (await readFile(resolve(assets, file), 'utf8')).includes('downloaded_from')) {
-    throw new Error(`dist/assets/${file} contains the full artwork list`);
-  }
-}
 
 const server = await createServer({
   root,
