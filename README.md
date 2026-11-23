@@ -25,15 +25,13 @@
 - 📖 **中文介绍**：8 段原创短文，手机上也能完整阅读。
 - 🔒 **零依赖外部**：没有账号、没有后端、没有第三方请求，图片全部本地托管。
 
-> 场景里有 307 张卡片，去重后是 56 幅作品（绘画 53 + 版画 3）。网格和聚焦后的左右键按作品去重，界面计数显示的是实际作品数。
-
 ## 图片来源与许可
 
 全部 56 幅画来自 [Wikimedia Commons](https://commons.wikimedia.org/)。逐一查看文件 API 返回的 `extmetadata`，只收录同时满足以下两项的文件：
 
 ```text
 Copyrighted:      False
-LicenseShortName: Public domain
+LicenseShortName: Public domain 或 CC0
 ```
 
 现代作品、来源不明或不满足上述条件的文件一律跳过。每幅画的原图、Commons 说明页、作者、年份和许可记录在：
@@ -86,7 +84,7 @@ npm run thumbs       # 生成 public/art/thumbs/ 下的 420px 预览图
 npm run deploy
 ```
 
-它先运行 `npm run build`，再执行 `wrangler pages deploy dist`。整站是 `dist/` 下的静态文件，不需要服务器或环境变量。站点域名在 `src/site.ts` 里修改。
+部署机需在 PATH 中提供 Wrangler CLI。该命令先运行 `npm run build`，再执行 `wrangler pages deploy dist`。整站是 `dist/` 下的静态文件，不需要服务器或环境变量。站点域名在 `src/site.ts` 里修改。
 
 ## 目录结构
 
@@ -99,8 +97,6 @@ src/
 ├── scene/                three.js 场景
 │   ├── gallery-scene.ts  卡片、加载、交互和逐帧动画
 │   ├── layouts.ts        球体 / 心形 / 笑脸 / 星形的卡片坐标
-│   ├── shared-loads.ts   按图片 URL 合并纹理请求
-│   ├── accent.ts         从缩略图取强调色
 │   └── constants.ts      颜色、各形状参数
 ├── data/                 卡片数据、显示名和类型（作品字段由 virtual:artorb-artworks 提供）
 ├── navigation.ts         链接悬停与页间淡入淡出（支持减少动态效果）
@@ -120,7 +116,7 @@ data/
 scripts/
 ├── build.ts              打包并预渲染
 ├── site-plugin.ts        Vite 插件：填充模板、裁剪场景字段、生成部署文件、/credits 路由
-├── site-files.ts         来源页表格、_headers、robots.txt、sitemap.xml
+├── site-files.ts         来源列表、_headers、robots.txt、sitemap.xml
 ├── collect-commons.ts    下载并校验公版图片
 └── thumbs.ts             生成缩略图
 tests/                    Vitest 测试

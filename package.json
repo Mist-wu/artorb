@@ -33,8 +33,7 @@
     "tailwindcss": "^4.3.5",
     "typescript": "~5.9.3",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0",
-    "wrangler": "^4.166.0"
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "framer-motion": "12.35.1",

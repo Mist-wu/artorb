@@ -3,18 +3,17 @@ import { FILTERS, LABELS, type FilterId } from '../data/views.ts';
 
 interface FilterBarProps {
   visible: boolean;
-  shownBefore: boolean;
+  menuOpen: boolean;
   filter: FilterId;
   onSelect(filter: FilterId): void;
 }
 
 /** Bottom-right `全部 / 绘画 / 版画` switch. */
-export function FilterBar({ visible, shownBefore, filter, onSelect }: FilterBarProps) {
+export function FilterBar({ visible, menuOpen, filter, onSelect }: FilterBarProps) {
   return (
     <div
       inert={!visible}
-      style={{ pointerEvents: visible ? undefined : 'none' }}
-      className="absolute bottom-3.5 right-[30px] z-20 flex h-9 items-center gap-6 sm:bottom-5 sm:right-6"
+      className={`absolute bottom-3.5 right-[30px] z-20 flex h-9 items-center gap-6 sm:bottom-5 sm:right-6 ${menuOpen ? 'max-sm:hidden' : ''}`}
     >
       {FILTERS.map((f, i) => (
         <motion.button
@@ -29,7 +28,7 @@ export function FilterBar({ visible, shownBefore, filter, onSelect }: FilterBarP
                   type: 'spring',
                   stiffness: 240,
                   damping: 26,
-                  delay: (shownBefore ? 0.22 : 0.55) + 0.07 * i,
+                  delay: 0.22 + 0.07 * i,
                 }
               : { duration: 0.14, delay: (FILTERS.length - 1 - i) * 0.025 }
           }

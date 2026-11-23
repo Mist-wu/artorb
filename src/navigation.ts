@@ -5,8 +5,8 @@
  * same-page clicks are left to the browser.
  */
 
-export const LEAVING_CLASS = 'artorb-leaving';
-export const LEAVE_DELAY_MS = 180;
+const LEAVING_CLASS = 'artorb-leaving';
+const LEAVE_DELAY_MS = 180;
 
 /** The globals the transitions touch; injectable for tests. */
 export interface NavigationEnv {

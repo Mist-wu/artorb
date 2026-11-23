@@ -3,12 +3,8 @@ import { sceneArtwork } from '../src/data/gallery.ts';
 import { artworks, creditRows, creditSummary, deployFiles, fillSiteTokens } from './site-files.ts';
 
 /** Scene-only artwork list for the gallery page and its prerender. */
-export const SCENE_MODULE = 'virtual:artorb-artworks';
+const SCENE_MODULE = 'virtual:artorb-artworks';
 const RESOLVED_SCENE_MODULE = '\0' + SCENE_MODULE;
-
-export function sceneModuleSource(): string {
-  return `export default ${JSON.stringify(artworks.map(sceneArtwork))};`;
-}
 
 /** Serve `/credits` like Cloudflare Pages does (extensionless `.html`). */
 const prettyUrls: Connect.NextHandleFunction = (req, _res, next) => {
@@ -26,7 +22,7 @@ export function artorbSite(): Plugin {
       return id === SCENE_MODULE ? RESOLVED_SCENE_MODULE : undefined;
     },
     load(id) {
-      return id === RESOLVED_SCENE_MODULE ? sceneModuleSource() : undefined;
+      return id === RESOLVED_SCENE_MODULE ? `export default ${JSON.stringify(artworks.map(sceneArtwork))};` : undefined;
     },
     transformIndexHtml: {
       order: 'pre',

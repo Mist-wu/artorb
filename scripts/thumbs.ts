@@ -1,6 +1,6 @@
 /**
  * Generate 420px thumbnails (public/art/thumbs/) for every artwork. Small
- * textures keep the 307 WebGL cards affordable on phones. Existing thumbnails
+ * textures keep the WebGL scene affordable on phones. Existing thumbnails
  * are kept. Uses macOS `sips`.
  *
  *   npm run thumbs

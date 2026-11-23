@@ -1,15 +1,12 @@
 import { motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatedText } from './components/AnimatedText.tsx';
+import { useEffect, useRef, useState } from 'react';
 import { FilterBar } from './components/FilterBar.tsx';
-import { GalleryCanvas } from './components/GalleryCanvas.tsx';
 import { ShapePager } from './components/ShapePager.tsx';
-import { AboutLinks, StoryOverlay } from './components/StoryOverlay.tsx';
-import type { GalleryItem } from './data/types.ts';
-import { distinctArtworks, LABELS, SHAPES, type FilterId, type Shape, type ViewMode } from './data/views.ts';
-import { textColorOn } from './lib/color.ts';
-import { ACCENTS, BACKGROUND, FRAME_COLOR } from './scene/constants.ts';
-import type { SceneControls } from './scene/gallery-scene.ts';
+import { StoryOverlay } from './components/StoryOverlay.tsx';
+import type { SceneArtwork } from './data/types.ts';
+import { SHAPES, type FilterId, type Shape, type ViewMode } from './data/views.ts';
+import { BACKGROUND } from './scene/constants.ts';
+import { createGalleryScene, type SceneControls } from './scene/gallery-scene.ts';
 
 /** Auto-advance the shape after this much inactivity (checked every 8s). */
 const IDLE_ADVANCE_MS = 10_000;
@@ -17,15 +14,23 @@ const ACTIVITY_EVENTS = ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touc
 
 const BOTTOM_FADE = `linear-gradient(to top, ${BACKGROUND} 30%, rgba(191,191,191,0.85) 50%, rgba(191,191,191,0.55) 68%, rgba(191,191,191,0.25) 84%, rgba(191,191,191,0))`;
 
-export function App({ items }: { items: GalleryItem[] }) {
+export function App({ items }: { items: SceneArtwork[] }) {
   const [started, setStarted] = useState(false);
   const [filter, setFilterState] = useState<FilterId>('all');
   const [shape, setShapeState] = useState<ViewMode>('sphere');
-  const [hoverItem, setHoverItem] = useState<GalleryItem | null>(null);
-  const [hoverAccent, setHoverAccent] = useState<string | null>(null);
-  const [focusItem, setFocusItem] = useState<GalleryItem | null>(null);
-  const [focusAccent, setFocusAccent] = useState<string | null>(null);
+  const [hoverItem, setHoverItem] = useState<SceneArtwork | null>(null);
+  const [focusItem, setFocusItem] = useState<SceneArtwork | null>(null);
   const controlsRef = useRef<SceneControls>({ filter: 'all', shape: 'sphere', started: false });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => createGalleryScene(containerRef.current!, items, controlsRef, {
+    onHoverItem: setHoverItem,
+    onFocusChange: setFocusItem,
+    onReady() {
+      controlsRef.current.started = true;
+      setStarted(true);
+    },
+  }), [items]);
 
   // Escape closes the story view.
   useEffect(() => {
@@ -102,68 +107,9 @@ export function App({ items }: { items: GalleryItem[] }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [started, shape, focusItem, shapeIndex]);
 
-  const artworkCount = useMemo(() => distinctArtworks(items, filter).length, [items, filter]);
   const controlsVisible = started && shape !== 'about';
 
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia('(max-width: 639px)');
-    const update = () => setIsMobile(query.matches);
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-  // On phones the open shape list needs the whole bottom row.
-  const filtersVisible = controlsVisible && !(menuOpen && isMobile);
-
-  const shownBefore = useRef(false);
-  useEffect(() => {
-    if (!controlsVisible) return;
-    const timer = setTimeout(() => {
-      shownBefore.current = true;
-    }, 1400);
-    return () => clearTimeout(timer);
-  }, [controlsVisible]);
-
   const activeItem = focusItem ?? hoverItem;
-  const accent = (focusItem ? focusAccent : hoverAccent) ?? ACCENTS[0];
-  const ink = textColorOn(accent);
-
-  const frameLabel = activeItem ? (
-    <span
-      className="block whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px] leading-tight"
-      style={{ background: accent, color: ink }}
-    >
-      {activeItem.date} · {activeItem.artist}
-    </span>
-  ) : (
-    <span
-      className="block cursor-default whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px] leading-tight text-white"
-      style={{ background: FRAME_COLOR }}
-    >
-      artorb · {LABELS[filter]} · {artworkCount}
-    </span>
-  );
-
-  const frameCaption = focusItem ? (
-    <a
-      href={focusItem.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="pointer-events-auto block max-w-[340px] truncate whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px] leading-tight hover:brightness-110"
-      style={{ background: accent, color: ink }}
-    >
-      《{focusItem.title}》 ↗
-    </a>
-  ) : hoverItem ? (
-    <span
-      className="block max-w-[340px] truncate whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px] leading-tight"
-      style={{ background: accent, color: ink }}
-    >
-      《{hoverItem.title}》
-    </span>
-  ) : null;
-
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ background: BACKGROUND }}>
       <img
@@ -171,34 +117,27 @@ export function App({ items }: { items: GalleryItem[] }) {
         alt="artorb"
         className="pointer-events-none absolute left-[30px] top-[25px] h-[52px] w-auto sm:left-6 sm:top-4"
       />
-      <GalleryCanvas
-        items={items}
-        controlsRef={controlsRef}
-        onHoverItem={(item, itemAccent) => {
-          setHoverItem(item);
-          setHoverAccent(itemAccent);
-        }}
-        onFocusChange={(item, itemAccent) => {
-          setFocusItem(item);
-          setFocusAccent(itemAccent);
-        }}
-        onReady={() => {
-          controlsRef.current.started = true;
-          setStarted(true);
-        }}
-        frameLabel={frameLabel}
-        frameCaption={frameCaption}
-      />
+      <div ref={containerRef} className="fixed inset-0 touch-none select-none" />
       {shape === 'about' && <StoryOverlay />}
       <div
         className="pointer-events-none absolute bottom-0 left-0 right-0 z-[15] h-[130px] transition-[height] duration-500 ease-out sm:h-44"
         style={{ background: BOTTOM_FADE }}
       />
-      {shape === 'about' && <AboutLinks />}
+      {controlsVisible && activeItem && (
+        <div className="pointer-events-none absolute inset-x-5 bottom-16 z-[16] text-center leading-tight text-[#242427]">
+          <div className="text-[20px] font-semibold">
+            {focusItem ? (
+              <a href={focusItem.source} target="_blank" rel="noopener noreferrer" className="pointer-events-auto hover:underline">
+                {focusItem.title} ↗
+              </a>
+            ) : activeItem.title}
+          </div>
+          <div className="mt-1 text-[14px]">{activeItem.artist} · {activeItem.year}</div>
+        </div>
+      )}
       <ShapePager
         menuRef={menuRef}
         visible={controlsVisible}
-        shownBefore={shownBefore.current}
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
         shapeIndex={shapeIndex}
@@ -207,15 +146,14 @@ export function App({ items }: { items: GalleryItem[] }) {
         selectShape={setShape}
       />
       <FilterBar
-        visible={filtersVisible}
-        shownBefore={shownBefore.current}
+        visible={controlsVisible}
+        menuOpen={menuOpen}
         filter={filter}
         onSelect={setFilter}
       />
       <motion.button
         onClick={() => setShape(shape === 'about' ? lastShape.current : 'about')}
         disabled={!started}
-        aria-label={shape === 'about' ? '关闭' : '名画介绍'}
         whileTap={{ scale: 0.94 }}
         initial={false}
         animate={{ opacity: +!!started, y: started ? 0 : -14 }}
@@ -224,7 +162,7 @@ export function App({ items }: { items: GalleryItem[] }) {
         }
         className="absolute right-[30px] top-[30px] z-20 cursor-pointer sm:right-6 sm:top-4 whitespace-nowrap text-[17px] lowercase leading-none text-black/80 transition-colors duration-200 hover:text-black"
       >
-        <AnimatedText text={shape === 'about' ? '关闭' : '名画介绍'} />
+        {shape === 'about' ? '关闭' : '名画介绍'}
       </motion.button>
     </div>
   );

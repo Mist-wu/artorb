@@ -1,4 +1,4 @@
-import type { ArtworkTag, GalleryItem } from './types.ts';
+import type { ArtworkTag } from './types.ts';
 
 export const SHAPES = ['sphere', 'heart', 'smiley', 'star', 'grid'] as const;
 export type Shape = (typeof SHAPES)[number];
@@ -26,26 +26,7 @@ export function tagMatchesFilter(tag: ArtworkTag, filter: FilterId): boolean {
   return true;
 }
 
-/** First card of each artwork that passes `filter`, in data order: the grid and ←/→ use only these. */
-export function distinctArtworks<T extends Pick<GalleryItem, 'artworkId' | 'tag'>>(
-  items: readonly T[],
-  filter: FilterId,
-): T[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (!tagMatchesFilter(item.tag, filter) || seen.has(item.artworkId)) return false;
-    seen.add(item.artworkId);
-    return true;
-  });
-}
-
-/** The entry `step` places from `artworkId` in `list`, wrapping around. */
-export function stepArtwork<T extends Pick<GalleryItem, 'artworkId'>>(
-  list: readonly T[],
-  artworkId: string,
-  step: number,
-): T | undefined {
-  if (!list.length) return undefined;
-  const at = list.findIndex((item) => item.artworkId === artworkId);
-  return list[(((at + step) % list.length) + list.length) % list.length];
+/** Browse the filtered list in either direction, wrapping at its ends. */
+export function stepArtwork<T>(list: readonly T[], current: T, direction: number): T {
+  return list[(list.indexOf(current) + direction + list.length) % list.length];
 }

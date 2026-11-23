@@ -26,7 +26,7 @@ function heartPoint(ordinal: number, out: Vector3): void {
   const fill = Math.pow(fract(PLASTIC_FRACTION * ordinal), 0.35);
   out.set(
     16 * s * s * s * fill * 0.3,
-    (-2.6 + (y - -2.6) * fill + 2.6) * 0.3,
+    (y + 2.6) * fill * 0.3,
     1.2 * hashNoise(5 * ordinal + 4),
   );
 }

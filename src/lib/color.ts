@@ -1,5 +1,5 @@
 /** WCAG relative luminance of a `#rrggbb` colour. */
-export function luminance(hex: string): number {
+function luminance(hex: string): number {
   const v = parseInt(hex.slice(1), 16);
   const [r, g, b] = [(v >> 16) & 255, (v >> 8) & 255, v & 255].map((c) => {
     const s = c / 255;

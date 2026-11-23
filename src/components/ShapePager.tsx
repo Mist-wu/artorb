@@ -8,8 +8,6 @@ const SNAPPY_SPRING = { type: 'spring', stiffness: 480, damping: 30, mass: 0.8 }
 interface ShapePagerProps {
   menuRef: Ref<HTMLDivElement>;
   visible: boolean;
-  /** Visible before: re-showing uses a shorter delay. */
-  shownBefore: boolean;
   menuOpen: boolean;
   setMenuOpen(open: boolean): void;
   shapeIndex: number;
@@ -23,7 +21,6 @@ interface ShapePagerProps {
 export function ShapePager({
   menuRef,
   visible,
-  shownBefore,
   menuOpen,
   setMenuOpen,
   shapeIndex,
@@ -42,10 +39,9 @@ export function ShapePager({
         animate={{ opacity: +!!visible, y: 22 * Number(!visible) }}
         transition={
           visible
-            ? { type: 'spring', stiffness: 210, damping: 26, delay: shownBefore ? 0.05 : 0.45 }
+            ? { type: 'spring', stiffness: 210, damping: 26, delay: 0.05 }
             : { duration: 0.2 }
         }
-        style={{ pointerEvents: visible ? undefined : 'none' }}
         className="flex h-9 items-center text-[17px] lowercase leading-none"
       >
         <AnimatePresence mode="wait" initial={false}>
